@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strategy Audit | Beneath The Book</title>
+<meta name="description" content="Data-driven trading strategy analysis. 3,505 days of regime-tagged market data. Find out if your edge is real.">
+<meta property="og:title" content="Strategy Audit | Beneath The Book">
+<meta property="og:description" content="Does your trading strategy actually produce alpha? We analyse it against 12 years of GEX regime data.">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23ffd700'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-weight='900' font-size='18' fill='%23080c14'>B</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080c14;overflow-x:hidden;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#ffffff;position:relative}
+html{scroll-behavior:smooth}
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(90deg,rgba(255,215,0,0.025) 0px,rgba(255,215,0,0.025) 1px,transparent 1px,transparent 80px)}
+#root{position:relative;z-index:1}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const GOLD = "#ffd700";
+const GOLD_DIM = "rgba(255,215,0,0.15)";
+const BG = "#080c14";
+const BG_CARD = "rgba(255,255,255,0.02)";
+const WHITE = "#ffffff";
+const SECONDARY = "#8899aa";
+const MUTED = "#667788";
+const BEARISH = "#ff4444";
+const BEARISH_LIGHT = "#ff6666";
+const BULLISH = "#00ffcc";
+const BULLISH_DIM = "#00ddcc";
+const BORDER_GOLD = "rgba(255,215,0,0.15)";
+const BORDER_GOLD_LINE = "rgba(255,215,0,0.3)";
+
+/* ── Fade-in on scroll ── */
+function FadeIn({ children, style, delay = 0 }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.15 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(24px)",
+      transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s`, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+/* ── Animated counter ── */
+function Counter({ end, suffix = "", prefix = "", duration = 2000 }) {
+  const ref = useRef(null);
+  const [val, setVal] = useState(0);
+  const started = useRef(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && !started.current) {
+        started.current = true;
+        const start = performance.now();
+        const tick = (now) => {
+          const p = Math.min((now - start) / duration, 1);
+          setVal(Math.floor(p * end));
+          if (p < 1) requestAnimationFrame(tick);
+          else setVal(end);
+        };
+        requestAnimationFrame(tick);
+        obs.disconnect();
+      }
+    }, { threshold: 0.3 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [end, duration]);
+  return <span ref={ref}>{prefix}{val.toLocaleString()}{suffix}</span>;
+}
+
+/* ── Section header ── */
+function SectionHeader({ title }) {
+  return (
+    <div style={{ marginBottom: 48, textAlign: "center" }}>
+      <div style={{ fontSize: 13, letterSpacing: 5, color: GOLD, fontWeight: 700, textTransform: "uppercase" }}>{title}</div>
+      <div style={{ width: 60, height: 2, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)`, margin: "16px auto 0" }} />
+    </div>
+  );
+}
+
+/* ── Stat box ── */
+function StatBox({ value, label, color = GOLD, end, suffix = "", prefix = "" }) {
+  return (
+    <div style={{ flex: "1 1 200px", background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderTop: `3px solid ${color}`,
+      padding: "28px 20px", textAlign: "center", borderRadius: 4 }}>
+      <div style={{ fontSize: 32, fontWeight: 800, color, letterSpacing: 1 }}>
+        {end != null ? <Counter end={end} suffix={suffix} prefix={prefix} /> : value}
+      </div>
+      <div style={{ fontSize: 12, color: SECONDARY, marginTop: 8, letterSpacing: 2, textTransform: "uppercase" }}>{label}</div>
+    </div>
+  );
+}
+
+/* ── Card ── */
+function Card({ borderColor = GOLD, title, description, children, style }) {
+  return (
+    <div style={{ background: BG_CARD, borderLeft: `4px solid ${borderColor}`, border: `1px solid ${BORDER_GOLD}`,
+      borderLeftColor: borderColor, borderLeftWidth: 4, borderLeftStyle: "solid",
+      padding: "28px 24px", borderRadius: 4, ...style }}>
+      {title && <div style={{ fontSize: 16, fontWeight: 700, color: WHITE, marginBottom: 8 }}>{title}</div>}
+      {description && <div style={{ fontSize: 14, color: SECONDARY, lineHeight: 1.6 }}>{description}</div>}
+      {children}
+    </div>
+  );
+}
+
+/* ── Equity curve SVG ── */
+function EquityCurve() {
+  const original = "M0,120 L40,115 L80,125 L120,110 L160,130 L200,120 L240,135 L280,125 L320,140 L360,130 L400,120 L440,135 L480,125 L520,130 L560,120";
+  const filtered = "M0,120 L40,115 L80,108 L120,100 L160,95 L200,88 L240,82 L280,78 L320,70 L360,62 L400,55 L440,48 L480,42 L520,35 L560,28";
+  return (
+    <svg viewBox="0 0 560 160" style={{ width: "100%", height: 160 }}>
+      <defs>
+        <linearGradient id="gGreen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={BULLISH} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={BULLISH} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* grid */}
+      {[0,1,2,3,4].map(i => <line key={i} x1={0} y1={i*40} x2={560} y2={i*40} stroke="rgba(255,255,255,0.04)" />)}
+      {/* original */}
+      <path d={original} fill="none" stroke={BEARISH} strokeWidth="2" opacity="0.6" />
+      {/* filtered area */}
+      <path d={filtered + " L560,160 L0,160 Z"} fill="url(#gGreen)" />
+      <path d={filtered} fill="none" stroke={BULLISH} strokeWidth="2.5" />
+      {/* labels */}
+      <text x="520" y="135" fill={BEARISH_LIGHT} fontSize="11" fontFamily="Helvetica Neue">Original</text>
+      <text x="490" y="22" fill={BULLISH} fontSize="11" fontFamily="Helvetica Neue">With Filter</text>
+    </svg>
+  );
+}
+
+/* ── Spinner ── */
+function Spinner() {
+  return (
+    <div style={{ display: "inline-block", width: 20, height: 20, border: `2px solid ${GOLD_DIM}`,
+      borderTopColor: GOLD, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+  );
+}
+
+/* ── EXAMPLES ── */
+const EXAMPLES = [
+  { label: "Prior Day Low Bounce", text: "I buy at the prior day's low when price touches it during RTH. Stop 4 ticks below, target 8 ticks. I only take it if there was a clean sell-off into the level (no chop). I exit if it doesn't bounce within 2 minutes." },
+  { label: "Prior Day High Short", text: "Short at prior day's high on first touch during RTH. Stop 4 ticks above, target 12 ticks. Only if we approach from below with momentum. Skip if price gapped above it overnight." },
+  { label: "OR Breakout", text: "Buy the breakout above the opening range high (first 30 min). Entry on first close above OR high. Stop at OR midpoint, target 2x the OR width. Skip if OR width is less than 4 points or more than 12." },
+];
+
+/* ── PRICING ── */
+const PRICING = [
+  {
+    name: "Pioneer", price: "FREE", badge: "FIRST 10", badgeColor: GOLD,
+    remaining: "3 of 10 remaining", highlight: false,
+    features: ["Single strategy analysis", "Regime breakdown (pos/neg gamma)", "Win rate by environment", "PDF report delivered via email"],
+  },
+  {
+    name: "Early Access", price: "99", originalPrice: "199", badge: "BEST VALUE", badgeColor: BULLISH,
+    discount: "50% OFF", highlight: true,
+    features: ["Everything in Pioneer", "VIX quadrant analysis", "Session timing breakdown", "3 ranked recommendations", "Priority 12-hour turnaround", "Follow-up Q&A session"],
+  },
+  {
+    name: "Full Audit", price: "199", badge: null, badgeColor: null,
+    highlight: false,
+    features: ["Everything in Early Access", "Multi-strategy comparison", "Custom regime definitions", "30-min video consultation", "Quarterly re-audit option"],
+  },
+];
+
+/* ── MAIN COMPONENT ── */
+function BTBStrategyAudit() {
+  const [strategy, setStrategy] = useState("");
+  const [phase, setPhase] = useState("input"); // input | parsing | confirm | success
+  const [parsedFields, setParsedFields] = useState(null);
+
+  const handleSubmit = () => {
+    if (!strategy.trim()) return;
+    setPhase("parsing");
+    setTimeout(() => {
+      setParsedFields([
+        { field: "Entry Trigger", value: strategy.includes("low") || strategy.includes("Low") ? "Prior Day Low touch" : strategy.includes("high") || strategy.includes("High") ? "Prior Day High touch" : "Opening Range breakout" },
+        { field: "Direction", value: strategy.toLowerCase().includes("short") ? "SHORT" : "LONG" },
+        { field: "Stop Loss", value: "4 ticks" },
+        { field: "Take Profit", value: strategy.includes("12") ? "12 ticks" : strategy.includes("2x") ? "2x OR width" : "8 ticks" },
+        { field: "Session", value: "RTH only" },
+        { field: "Filters", value: strategy.toLowerCase().includes("gap") ? "No overnight gap" : strategy.toLowerCase().includes("chop") ? "Clean approach required" : "Momentum approach" },
+      ]);
+      setPhase("confirm");
+    }, 2400);
+  };
+
+  const handleConfirm = () => {
+    setPhase("success");
+  };
+
+  const handleReset = () => {
+    setStrategy("");
+    setPhase("input");
+    setParsedFields(null);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh" }}>
+      {/* ── NAV ── */}
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+        background: "rgba(8,12,20,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${BORDER_GOLD}`,
+        display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 40px", height: 56 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 6, color: GOLD }}>BENEATH THE BOOK</div>
+        <a href="#submit" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: BG,
+          background: GOLD, padding: "8px 20px", borderRadius: 4, textDecoration: "none", textTransform: "uppercase" }}>
+          Submit Strategy
+        </a>
+      </nav>
+
+      {/* ── HERO ── */}
+      <section style={{ paddingTop: 140, paddingBottom: 80, textAlign: "center", maxWidth: 800, margin: "0 auto", padding: "140px 24px 80px" }}>
+        <FadeIn>
+          <div style={{ fontSize: 14, letterSpacing: 8, color: GOLD, fontWeight: 700, marginBottom: 16 }}>BENEATH THE BOOK</div>
+          <div style={{ width: 60, height: 2, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)`, margin: "0 auto 32px" }} />
+          <h1 style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.2, marginBottom: 16, letterSpacing: -0.5 }}>STRATEGY AUDIT SERVICE</h1>
+          <p style={{ fontSize: 20, color: SECONDARY, marginBottom: 32, lineHeight: 1.5 }}>
+            Does your trading strategy actually produce alpha?<br />We analyse it against 12 years of regime-tagged market data.
+          </p>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12, background: GOLD_DIM,
+            border: `1px solid ${BORDER_GOLD_LINE}`, borderRadius: 20, padding: "8px 24px", marginBottom: 40 }}>
+            <span style={{ fontSize: 13, color: GOLD, fontWeight: 600, letterSpacing: 1 }}>3,505 Days &middot; 12 Years &middot; 21 Validated Findings</span>
+          </div>
+          <p style={{ fontSize: 15, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: "0 auto 48px" }}>
+            Most traders never test whether their edge survives different market regimes.
+            We run your strategy through 3,505 days of GEX-regime-tagged ES futures data
+            and tell you exactly where it works, where it breaks, and what to change.
+          </p>
+        </FadeIn>
+        <FadeIn delay={0.2}>
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+            <StatBox end={3505} label="Trading Days" />
+            <StatBox end={19731} label="Level Tests" color={BULLISH} />
+            <StatBox end={21} label="Findings" color={BEARISH_LIGHT} />
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ── WHAT MAKES THIS DIFFERENT ── */}
+      <section style={{ maxWidth: 900, margin: "0 auto", padding: "60px 24px" }}>
+        <FadeIn><SectionHeader title="What Makes This Different" /></FadeIn>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <FadeIn delay={0.1}>
+            <Card borderColor={GOLD} title="Regime-Conditional Analysis"
+              description="Your strategy isn't tested in a vacuum. We split every metric by positive vs negative gamma regime, because a strategy that works in calm markets can destroy capital in volatile ones. You'll see your real edge in each environment." />
+          </FadeIn>
+          <FadeIn delay={0.2}>
+            <Card borderColor={BULLISH} title="Environmental Context"
+              description="Beyond regime, we layer in VIX quadrant (low/rising, high/falling, etc.), zero-gamma positioning, session timing (A/B/C periods), and day-of-week effects. You'll know exactly when your strategy has edge and when to sit out." />
+          </FadeIn>
+          <FadeIn delay={0.3}>
+            <Card borderColor={BEARISH} title="Actionable Recommendations"
+              description="Every audit delivers three specific, ranked changes. Not vague advice - concrete filters and modifications with estimated P&L impact. 'Add a positive-gamma-only filter' beats 'consider market conditions' every time." />
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── SAMPLE OUTPUT ── */}
+      <section style={{ maxWidth: 900, margin: "0 auto", padding: "60px 24px" }}>
+        <FadeIn><SectionHeader title="Sample Audit Output" /></FadeIn>
+        <FadeIn delay={0.1}>
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 32 }}>
+            <StatBox value="52.3%" label="Win Rate" />
+            <StatBox value="0.81" label="Sharpe Ratio" color={BULLISH} />
+            <StatBox value="1.34" label="Profit Factor" color={BEARISH_LIGHT} />
+          </div>
+        </FadeIn>
+
+        {/* Regime edge card */}
+        <FadeIn delay={0.2}>
+          <div style={{ background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderRadius: 4, padding: 32, marginBottom: 24 }}>
+            <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 24, textTransform: "uppercase" }}>The Regime Edge</div>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
+              <div style={{ flex: "1 1 200px", textAlign: "center", padding: 24, background: "rgba(0,255,204,0.04)", borderRadius: 4, border: `1px solid rgba(0,255,204,0.15)` }}>
+                <div style={{ fontSize: 12, color: SECONDARY, letterSpacing: 2, marginBottom: 8 }}>POSITIVE GAMMA</div>
+                <div style={{ fontSize: 48, fontWeight: 800, color: BULLISH }}>67.3%</div>
+                <div style={{ fontSize: 13, color: BULLISH_DIM, marginTop: 4 }}>Win Rate</div>
+              </div>
+              <div style={{ flex: "1 1 200px", textAlign: "center", padding: 24, background: "rgba(255,68,68,0.04)", borderRadius: 4, border: `1px solid rgba(255,68,68,0.15)` }}>
+                <div style={{ fontSize: 12, color: SECONDARY, letterSpacing: 2, marginBottom: 8 }}>NEGATIVE GAMMA</div>
+                <div style={{ fontSize: 48, fontWeight: 800, color: BEARISH }}>43.1%</div>
+                <div style={{ fontSize: 13, color: BEARISH_LIGHT, marginTop: 4 }}>Win Rate</div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Equity curve */}
+        <FadeIn delay={0.3}>
+          <div style={{ background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderRadius: 4, padding: "24px 24px 16px", marginBottom: 24 }}>
+            <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 16, textTransform: "uppercase" }}>Equity Curve Comparison</div>
+            <EquityCurve />
+          </div>
+        </FadeIn>
+
+        {/* Recommendation */}
+        <FadeIn delay={0.4}>
+          <Card borderColor={BULLISH} title="Top Recommendation: Add Positive-Gamma-Only Filter">
+            <div style={{ fontSize: 14, color: SECONDARY, lineHeight: 1.6, marginTop: 8 }}>
+              Your strategy shows a 24.2 percentage point edge in positive gamma environments.
+              By filtering out negative gamma days, you eliminate 71% of losing trades while
+              retaining 89% of winners.
+            </div>
+            <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(0,255,204,0.06)", borderRadius: 4,
+              border: `1px solid rgba(0,255,204,0.15)`, fontSize: 14, color: BULLISH, fontWeight: 600 }}>
+              Estimated annual savings: &pound;3,200
+            </div>
+          </Card>
+        </FadeIn>
+      </section>
+
+      {/* ── HOW IT WORKS ── */}
+      <section style={{ maxWidth: 900, margin: "0 auto", padding: "60px 24px" }}>
+        <FadeIn><SectionHeader title="How It Works" /></FadeIn>
+        {[
+          { step: "01", title: "Describe Your Strategy", desc: "Tell us your entry trigger, stop, target, and any filters. Plain English is fine \u2014 our parser handles the rest. Takes about 2 minutes." },
+          { step: "02", title: "We Run The Analysis", desc: "Your strategy is tested against 3,505 days of regime-tagged ES futures data. Every trade is simulated with real market microstructure. Results within 24 hours." },
+          { step: "03", title: "Receive Your Report", desc: "A detailed PDF with regime splits, environmental breakdowns, equity curves, and three ranked recommendations. Delivered to your email." },
+        ].map((s, i) => (
+          <FadeIn key={i} delay={i * 0.15}>
+            <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 20 }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: GOLD, opacity: 0.3, minWidth: 48 }}>{s.step}</div>
+              <Card borderColor={GOLD} title={s.title} description={s.desc} style={{ flex: 1 }} />
+            </div>
+          </FadeIn>
+        ))}
+      </section>
+
+      {/* ── PRICING ── */}
+      <section style={{ maxWidth: 1000, margin: "0 auto", padding: "60px 24px" }}>
+        <FadeIn><SectionHeader title="Launch Pricing" /></FadeIn>
+        <FadeIn delay={0.1}>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+            {PRICING.map((tier, i) => (
+              <div key={i} style={{ flex: "1 1 280px", maxWidth: 320, background: BG_CARD,
+                border: tier.highlight ? `2px solid ${GOLD}` : `1px solid ${BORDER_GOLD}`,
+                borderRadius: 4, padding: "32px 24px", position: "relative",
+                display: "flex", flexDirection: "column" }}>
+                {tier.badge && (
+                  <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
+                    background: tier.highlight ? GOLD : BG, color: tier.highlight ? BG : tier.badgeColor,
+                    border: tier.highlight ? "none" : `1px solid ${tier.badgeColor}`,
+                    fontSize: 11, fontWeight: 800, letterSpacing: 2, padding: "4px 16px", borderRadius: 12 }}>
+                    {tier.badge}
+                  </div>
+                )}
+                <div style={{ fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 4, marginTop: tier.badge ? 8 : 0 }}>{tier.name}</div>
+                {tier.discount && <div style={{ fontSize: 12, color: BULLISH, fontWeight: 700, marginBottom: 8 }}>{tier.discount}</div>}
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 36, fontWeight: 800, color: GOLD }}>
+                    {tier.price === "FREE" ? "FREE" : `\u00A3${tier.price}`}
+                  </span>
+                  {tier.originalPrice && <span style={{ fontSize: 16, color: MUTED, textDecoration: "line-through" }}>&pound;{tier.originalPrice}</span>}
+                </div>
+                {tier.remaining && <div style={{ fontSize: 12, color: BEARISH_LIGHT, marginBottom: 16, fontWeight: 600 }}>{tier.remaining}</div>}
+                <div style={{ flex: 1, marginTop: 8 }}>
+                  {tier.features.map((f, j) => (
+                    <div key={j} style={{ fontSize: 13, color: SECONDARY, padding: "6px 0",
+                      borderBottom: j < tier.features.length - 1 ? `1px solid ${BORDER_GOLD}` : "none" }}>
+                      <span style={{ color: GOLD, marginRight: 8 }}>&#10003;</span>{f}
+                    </div>
+                  ))}
+                </div>
+                <a href="#submit" style={{ display: "block", textAlign: "center", marginTop: 24, padding: "12px 0",
+                  background: tier.highlight ? GOLD : "transparent", color: tier.highlight ? BG : GOLD,
+                  border: tier.highlight ? "none" : `1px solid ${BORDER_GOLD_LINE}`,
+                  borderRadius: 4, fontWeight: 700, fontSize: 13, letterSpacing: 2, textDecoration: "none",
+                  textTransform: "uppercase", cursor: "pointer" }}>
+                  {tier.price === "FREE" ? "CLAIM FREE AUDIT" : "GET STARTED"}
+                </a>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ── SUBMIT STRATEGY ── */}
+      <section id="submit" style={{ maxWidth: 700, margin: "0 auto", padding: "80px 24px" }}>
+        <FadeIn><SectionHeader title="Submit Your Strategy" /></FadeIn>
+        <FadeIn delay={0.1}>
+          <div style={{ background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderRadius: 4, padding: 32 }}>
+            {phase === "input" && (
+              <>
+                <div style={{ fontSize: 14, color: SECONDARY, marginBottom: 16 }}>
+                  Describe your trading strategy in plain English. Include entry trigger, stop loss, target, session, and any filters.
+                </div>
+                <textarea value={strategy} onChange={(e) => setStrategy(e.target.value)}
+                  placeholder="Example: I buy at the prior day's low when price touches it during RTH. Stop 4 ticks below, target 8 ticks..."
+                  style={{ width: "100%", minHeight: 140, background: "rgba(255,255,255,0.03)", border: `1px solid ${BORDER_GOLD_LINE}`,
+                    borderRadius: 4, padding: 16, color: WHITE, fontSize: 14, fontFamily: "Helvetica Neue, sans-serif",
+                    lineHeight: 1.6, resize: "vertical", outline: "none" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  {EXAMPLES.map((ex, i) => (
+                    <button key={i} onClick={() => setStrategy(ex.text)}
+                      style={{ background: "rgba(255,215,0,0.06)", border: `1px solid ${BORDER_GOLD_LINE}`, color: GOLD,
+                        fontSize: 12, padding: "6px 14px", borderRadius: 16, cursor: "pointer", fontFamily: "Helvetica Neue, sans-serif" }}>
+                      {ex.label}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleSubmit}
+                  style={{ width: "100%", marginTop: 24, padding: "14px 0", background: GOLD, color: BG,
+                    border: "none", borderRadius: 4, fontSize: 14, fontWeight: 800, letterSpacing: 3,
+                    cursor: strategy.trim() ? "pointer" : "not-allowed", opacity: strategy.trim() ? 1 : 0.4,
+                    fontFamily: "Helvetica Neue, sans-serif", textTransform: "uppercase" }}>
+                  ANALYSE MY STRATEGY
+                </button>
+              </>
+            )}
+
+            {phase === "parsing" && (
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <Spinner />
+                <div style={{ marginTop: 16, fontSize: 14, color: SECONDARY }}>Parsing your strategy...</div>
+                <div style={{ marginTop: 8, fontSize: 12, color: MUTED }}>Identifying entry triggers, stops, targets, and filters</div>
+              </div>
+            )}
+
+            {phase === "confirm" && parsedFields && (
+              <>
+                <div style={{ fontSize: 14, color: BULLISH, fontWeight: 600, marginBottom: 16 }}>&#10003; Strategy parsed successfully</div>
+                <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
+                  {parsedFields.map((f, i) => (
+                    <div key={i} style={{ display: "flex", borderBottom: i < parsedFields.length - 1 ? `1px solid ${BORDER_GOLD}` : "none" }}>
+                      <div style={{ flex: "0 0 140px", padding: "10px 16px", fontSize: 12, color: MUTED, fontWeight: 600,
+                        letterSpacing: 1, textTransform: "uppercase", borderRight: `1px solid ${BORDER_GOLD}` }}>{f.field}</div>
+                      <div style={{ flex: 1, padding: "10px 16px", fontSize: 14, color: WHITE }}>{f.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button onClick={handleReset}
+                    style={{ flex: 1, padding: "12px 0", background: "transparent", border: `1px solid ${BORDER_GOLD_LINE}`,
+                      color: SECONDARY, borderRadius: 4, fontSize: 13, cursor: "pointer", fontFamily: "Helvetica Neue, sans-serif" }}>
+                    Edit Strategy
+                  </button>
+                  <button onClick={handleConfirm}
+                    style={{ flex: 2, padding: "12px 0", background: GOLD, color: BG, border: "none",
+                      borderRadius: 4, fontSize: 13, fontWeight: 800, letterSpacing: 2, cursor: "pointer",
+                      fontFamily: "Helvetica Neue, sans-serif", textTransform: "uppercase" }}>
+                    CONFIRM &mdash; RUN FULL AUDIT
+                  </button>
+                </div>
+              </>
+            )}
+
+            {phase === "success" && (
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(0,255,204,0.1)",
+                  border: `2px solid ${BULLISH}`, display: "flex", alignItems: "center", justifyContent: "center",
+                  margin: "0 auto 20px", fontSize: 28, color: BULLISH }}>&#10003;</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: WHITE, marginBottom: 8 }}>Strategy Submitted</div>
+                <div style={{ fontSize: 14, color: SECONDARY, lineHeight: 1.6, maxWidth: 400, margin: "0 auto" }}>
+                  Your audit is queued. You'll receive a detailed PDF report within 24 hours.
+                  Check your email for a confirmation with your audit reference number.
+                </div>
+                <button onClick={handleReset}
+                  style={{ marginTop: 24, padding: "10px 32px", background: "transparent", border: `1px solid ${BORDER_GOLD_LINE}`,
+                    color: GOLD, borderRadius: 4, fontSize: 13, cursor: "pointer", fontFamily: "Helvetica Neue, sans-serif",
+                    letterSpacing: 1 }}>
+                  Submit Another Strategy
+                </button>
+              </div>
+            )}
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ── DATA CREDENTIALS ── */}
+      <section style={{ maxWidth: 700, margin: "0 auto", padding: "40px 24px 80px" }}>
+        <FadeIn>
+          <div style={{ background: BG_CARD, border: `2px solid ${BORDER_GOLD_LINE}`, borderRadius: 4, padding: 32 }}>
+            <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 24, textAlign: "center", textTransform: "uppercase" }}>Data Credentials</div>
+            <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+              {[
+                { v: "3,505", l: "Trading Days" },
+                { v: "12 Years", l: "History" },
+                { v: "19,731", l: "Level Tests" },
+                { v: "p < 0.001", l: "Significance" },
+              ].map((d, i) => (
+                <div key={i} style={{ textAlign: "center", padding: "12px 20px" }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: GOLD }}>{d.v}</div>
+                  <div style={{ fontSize: 11, color: MUTED, letterSpacing: 1, marginTop: 4, textTransform: "uppercase" }}>{d.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer style={{ borderTop: `1px solid ${BORDER_GOLD}`, padding: "40px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 13, letterSpacing: 6, color: GOLD, fontWeight: 700, marginBottom: 12 }}>BENEATH THE BOOK</div>
+        <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.6, maxWidth: 400, margin: "0 auto 16px" }}>
+          Data-driven trading analysis.<br />Regime-conditional strategy audits for ES futures traders.
+        </div>
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 8 }}>
+          TikTok: @beneaththebook &middot; Instagram: @beneaththebook
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(102,119,136,0.5)" }}>&copy; 2025 Beneath The Book. All rights reserved.</div>
+      </footer>
+
+      {/* Spinner keyframes */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<BTBStrategyAudit />);
+</script>
+</body>
+</html>
