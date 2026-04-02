@@ -183,36 +183,110 @@ const PRICING = [
   },
 ];
 
+const API_BASE = "http://192.168.1.118:3002";
+
+function formatFieldName(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function formatFieldValue(val) {
+  if (val === null || val === undefined) return 'None';
+  if (Array.isArray(val)) return val.length ? val.join(', ') : 'None';
+  return String(val);
+}
+
+/* ── Live equity curve from report data ── */
+function LiveEquityCurve({ curve, curvePos, curveNeg }) {
+  if (!curve || curve.length < 2) return null;
+  const W = 560, H = 160, PAD = 10;
+
+  function buildPath(data) {
+    if (!data || data.length < 2) return "";
+    const vals = data.map(d => d.cumulative);
+    const minV = Math.min(...vals, 0);
+    const maxV = Math.max(...vals, 1);
+    const range = maxV - minV || 1;
+    return data.map((d, i) => {
+      const x = PAD + (i / (data.length - 1)) * (W - 2 * PAD);
+      const y = H - PAD - ((d.cumulative - minV) / range) * (H - 2 * PAD);
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+  }
+
+  const allPath = buildPath(curve);
+  const posPath = buildPath(curvePos);
+  const negPath = buildPath(curveNeg);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }}>
+      {[0,1,2,3,4].map(i => <line key={i} x1={0} y1={i*40} x2={W} y2={i*40} stroke="rgba(255,255,255,0.04)" />)}
+      {negPath && <path d={negPath} fill="none" stroke={BEARISH} strokeWidth="1.5" opacity="0.6" />}
+      {posPath && <path d={posPath} fill="none" stroke={BULLISH} strokeWidth="2" />}
+      {allPath && <path d={allPath} fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray="4 3" opacity="0.5" />}
+      <text x={W-70} y={20} fill={BULLISH} fontSize="10" fontFamily="Helvetica Neue">+Gamma</text>
+      <text x={W-70} y={H-10} fill={BEARISH_LIGHT} fontSize="10" fontFamily="Helvetica Neue">-Gamma</text>
+      <text x={10} y={20} fill={GOLD} fontSize="10" fontFamily="Helvetica Neue" opacity="0.6">All</text>
+    </svg>
+  );
+}
+
 /* ── MAIN COMPONENT ── */
 function BTBStrategyAudit() {
   const [strategy, setStrategy] = useState("");
-  const [phase, setPhase] = useState("input"); // input | parsing | confirm | success
-  const [parsedFields, setParsedFields] = useState(null);
+  const [phase, setPhase] = useState("input"); // input | parsing | confirm | running | results
+  const [parsedConfig, setParsedConfig] = useState(null);
+  const [report, setReport] = useState(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!strategy.trim()) return;
     setPhase("parsing");
-    setTimeout(() => {
-      setParsedFields([
-        { field: "Entry Trigger", value: strategy.includes("low") || strategy.includes("Low") ? "Prior Day Low touch" : strategy.includes("high") || strategy.includes("High") ? "Prior Day High touch" : "Opening Range breakout" },
-        { field: "Direction", value: strategy.toLowerCase().includes("short") ? "SHORT" : "LONG" },
-        { field: "Stop Loss", value: "4 ticks" },
-        { field: "Take Profit", value: strategy.includes("12") ? "12 ticks" : strategy.includes("2x") ? "2x OR width" : "8 ticks" },
-        { field: "Session", value: "RTH only" },
-        { field: "Filters", value: strategy.toLowerCase().includes("gap") ? "No overnight gap" : strategy.toLowerCase().includes("chop") ? "Clean approach required" : "Momentum approach" },
-      ]);
-      setPhase("confirm");
-    }, 2400);
+    try {
+      const res = await fetch(`${API_BASE}/parse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategy })
+      });
+      const data = await res.json();
+      if (data.success && data.config) {
+        setParsedConfig(data.config);
+        setPhase("confirm");
+      } else {
+        alert("Failed to parse strategy: " + (data.error || "Unknown error"));
+        setPhase("input");
+      }
+    } catch (err) {
+      alert("Connection error. Is the API running?");
+      setPhase("input");
+    }
   };
 
-  const handleConfirm = () => {
-    setPhase("success");
+  const handleConfirm = async () => {
+    setPhase("running");
+    try {
+      const res = await fetch(`${API_BASE}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsedConfig)
+      });
+      const data = await res.json();
+      if (data.success && data.report) {
+        setReport(data.report);
+        setPhase("results");
+      } else {
+        alert("Backtest failed: " + (data.error || "Unknown error"));
+        setPhase("confirm");
+      }
+    } catch (err) {
+      alert("Connection error during backtest.");
+      setPhase("confirm");
+    }
   };
 
   const handleReset = () => {
     setStrategy("");
     setPhase("input");
-    setParsedFields(null);
+    setParsedConfig(null);
+    setReport(null);
   };
 
   return (
@@ -436,15 +510,15 @@ function BTBStrategyAudit() {
               </div>
             )}
 
-            {phase === "confirm" && parsedFields && (
+            {phase === "confirm" && parsedConfig && (
               <>
                 <div style={{ fontSize: 14, color: BULLISH, fontWeight: 600, marginBottom: 16 }}>&#10003; Strategy parsed successfully</div>
                 <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
-                  {parsedFields.map((f, i) => (
-                    <div key={i} style={{ display: "flex", borderBottom: i < parsedFields.length - 1 ? `1px solid ${BORDER_GOLD}` : "none" }}>
-                      <div style={{ flex: "0 0 140px", padding: "10px 16px", fontSize: 12, color: MUTED, fontWeight: 600,
-                        letterSpacing: 1, textTransform: "uppercase", borderRight: `1px solid ${BORDER_GOLD}` }}>{f.field}</div>
-                      <div style={{ flex: 1, padding: "10px 16px", fontSize: 14, color: WHITE }}>{f.value}</div>
+                  {Object.entries(parsedConfig).map(([key, val], i, arr) => (
+                    <div key={key} style={{ display: "flex", borderBottom: i < arr.length - 1 ? `1px solid ${BORDER_GOLD}` : "none" }}>
+                      <div style={{ flex: "0 0 160px", padding: "10px 16px", fontSize: 12, color: MUTED, fontWeight: 600,
+                        letterSpacing: 1, textTransform: "uppercase", borderRight: `1px solid ${BORDER_GOLD}` }}>{formatFieldName(key)}</div>
+                      <div style={{ flex: 1, padding: "10px 16px", fontSize: 14, color: WHITE, fontWeight: 600 }}>{formatFieldValue(val)}</div>
                     </div>
                   ))}
                 </div>
@@ -464,24 +538,117 @@ function BTBStrategyAudit() {
               </>
             )}
 
-            {phase === "success" && (
-              <div style={{ textAlign: "center", padding: "40px 0" }}>
-                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(0,255,204,0.1)",
-                  border: `2px solid ${BULLISH}`, display: "flex", alignItems: "center", justifyContent: "center",
-                  margin: "0 auto 20px", fontSize: 28, color: BULLISH }}>&#10003;</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: WHITE, marginBottom: 8 }}>Strategy Submitted</div>
-                <div style={{ fontSize: 14, color: SECONDARY, lineHeight: 1.6, maxWidth: 400, margin: "0 auto" }}>
-                  Your audit is queued. You'll receive a detailed PDF report within 24 hours.
-                  Check your email for a confirmation with your audit reference number.
-                </div>
-                <button onClick={handleReset}
-                  style={{ marginTop: 24, padding: "10px 32px", background: "transparent", border: `1px solid ${BORDER_GOLD_LINE}`,
-                    color: GOLD, borderRadius: 4, fontSize: 13, cursor: "pointer", fontFamily: "Helvetica Neue, sans-serif",
-                    letterSpacing: 1 }}>
-                  Submit Another Strategy
-                </button>
+            {phase === "running" && (
+              <div style={{ textAlign: "center", padding: "50px 0" }}>
+                <Spinner />
+                <div style={{ marginTop: 20, fontSize: 16, fontWeight: 700, color: GOLD, letterSpacing: 2 }}>RUNNING BACKTEST</div>
+                <div style={{ marginTop: 12, fontSize: 14, color: SECONDARY }}>Analysing against 3,505 days of regime-tagged data...</div>
+                <div style={{ marginTop: 8, fontSize: 12, color: MUTED }}>This may take up to 60 seconds</div>
               </div>
             )}
+
+            {phase === "results" && report && (() => {
+              const o = report.overall || {};
+              const p = report.positive_gamma || {};
+              const n = report.negative_gamma || {};
+              const recs = report.recommendations || [];
+              return (
+                <>
+                  <div style={{ fontSize: 14, color: BULLISH, fontWeight: 600, marginBottom: 24 }}>&#10003; Audit Complete &mdash; {report.strategy || "Strategy"}</div>
+
+                  {/* Stat boxes */}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+                    <StatBox value={`${o.win_rate || 0}%`} label="Win Rate" />
+                    <StatBox value={o.sharpe || 0} label="Sharpe Ratio" color={BULLISH} />
+                    <StatBox value={o.profit_factor || 0} label="Profit Factor" color={BEARISH_LIGHT} />
+                  </div>
+
+                  {/* Overall stats */}
+                  <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 4, padding: "16px 20px", marginBottom: 24, fontSize: 13, color: SECONDARY, lineHeight: 2 }}>
+                    <span style={{ color: GOLD }}>Trades:</span> {o.trades || 0} &nbsp;|&nbsp;
+                    <span style={{ color: GOLD }}>Wins:</span> {o.wins || 0} &nbsp;|&nbsp;
+                    <span style={{ color: GOLD }}>Losses:</span> {o.losses || 0} &nbsp;|&nbsp;
+                    <span style={{ color: GOLD }}>Total P&amp;L:</span> <span style={{ color: (o.total_pnl||0) >= 0 ? BULLISH : BEARISH }}>{(o.total_pnl||0) >= 0 ? '+' : ''}{o.total_pnl || 0}pts (${(o.total_pnl_dollars||0).toLocaleString()})</span> &nbsp;|&nbsp;
+                    <span style={{ color: GOLD }}>Max DD:</span> {o.max_drawdown || 0}pts &nbsp;|&nbsp;
+                    <span style={{ color: GOLD }}>Period:</span> {(report.date_range||{}).start} &rarr; {(report.date_range||{}).end}
+                  </div>
+
+                  {/* Regime edge */}
+                  <div style={{ background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderRadius: 4, padding: 24, marginBottom: 24 }}>
+                    <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 20, textTransform: "uppercase" }}>Regime Edge</div>
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+                      <div style={{ flex: "1 1 180px", textAlign: "center", padding: 20, background: "rgba(0,255,204,0.04)", borderRadius: 4, border: `1px solid rgba(0,255,204,0.15)` }}>
+                        <div style={{ fontSize: 11, color: SECONDARY, letterSpacing: 2, marginBottom: 6 }}>POSITIVE GAMMA</div>
+                        <div style={{ fontSize: 40, fontWeight: 800, color: BULLISH }}>{p.win_rate || 0}%</div>
+                        <div style={{ fontSize: 12, color: BULLISH_DIM, marginTop: 4 }}>{p.trades || 0} trades &middot; PF {p.profit_factor || 0}</div>
+                      </div>
+                      <div style={{ flex: "1 1 180px", textAlign: "center", padding: 20, background: "rgba(255,68,68,0.04)", borderRadius: 4, border: `1px solid rgba(255,68,68,0.15)` }}>
+                        <div style={{ fontSize: 11, color: SECONDARY, letterSpacing: 2, marginBottom: 6 }}>NEGATIVE GAMMA</div>
+                        <div style={{ fontSize: 40, fontWeight: 800, color: BEARISH }}>{n.win_rate || 0}%</div>
+                        <div style={{ fontSize: 12, color: BEARISH_LIGHT, marginTop: 4 }}>{n.trades || 0} trades &middot; PF {n.profit_factor || 0}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Equity curve */}
+                  <div style={{ background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderRadius: 4, padding: "20px 20px 12px", marginBottom: 24 }}>
+                    <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 12, textTransform: "uppercase" }}>Equity Curve by Regime</div>
+                    <LiveEquityCurve curve={report.equity_curve} curvePos={report.equity_curve_positive} curveNeg={report.equity_curve_negative} />
+                  </div>
+
+                  {/* VIX Quadrants */}
+                  {report.vix_quadrants && Object.keys(report.vix_quadrants).length > 0 && (
+                    <div style={{ background: BG_CARD, border: `1px solid ${BORDER_GOLD}`, borderRadius: 4, padding: "20px 20px", marginBottom: 24 }}>
+                      <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 16, textTransform: "uppercase" }}>VIX Quadrants</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {[["low_pos","Low VIX / +G"],["low_neg","Low VIX / -G"],["high_pos","High VIX / +G"],["high_neg","High VIX / -G"]].map(([k,label]) => {
+                          const q = (report.vix_quadrants||{})[k];
+                          if (!q) return null;
+                          return (
+                            <div key={k} style={{ flex: "1 1 120px", textAlign: "center", padding: "12px 8px", background: "rgba(0,0,0,0.2)", borderRadius: 4 }}>
+                              <div style={{ fontSize: 10, color: MUTED, letterSpacing: 1, marginBottom: 4 }}>{label}</div>
+                              <div style={{ fontSize: 20, fontWeight: 800, color: q.win_rate > (o.win_rate||0) ? BULLISH : BEARISH }}>{q.win_rate}%</div>
+                              <div style={{ fontSize: 10, color: MUTED }}>{q.trades} trades</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommendations */}
+                  {recs.length > 0 && (
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 16, textTransform: "uppercase" }}>Recommendations</div>
+                      {recs.map((r, i) => (
+                        <div key={i} style={{ background: BG_CARD, borderLeft: `4px solid ${BULLISH}`, border: `1px solid ${BORDER_GOLD}`,
+                          borderLeftColor: BULLISH, borderLeftWidth: 4, borderLeftStyle: "solid",
+                          padding: "16px 20px", borderRadius: 4, marginBottom: 12 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: WHITE, marginBottom: 4 }}>#{r.rank}: {r.title}</div>
+                          <div style={{ fontSize: 13, color: BULLISH, marginBottom: 6 }}>{r.impact}</div>
+                          <div style={{ fontSize: 13, color: SECONDARY, lineHeight: 1.5 }}>{r.description}</div>
+                          {r.estimated_savings_dollars > 0 && (
+                            <div style={{ marginTop: 8, fontSize: 13, color: BULLISH, fontWeight: 600 }}>
+                              Estimated savings: ${r.estimated_savings_dollars.toLocaleString()}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button onClick={handleReset}
+                      style={{ flex: 1, padding: "12px 0", background: "transparent", border: `1px solid ${BORDER_GOLD_LINE}`,
+                        color: GOLD, borderRadius: 4, fontSize: 13, cursor: "pointer", fontFamily: "Helvetica Neue, sans-serif",
+                        letterSpacing: 1 }}>
+                      Audit Another Strategy
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </FadeIn>
       </section>
