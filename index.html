@@ -296,10 +296,14 @@ function BTBStrategyAudit() {
         background: "rgba(8,12,20,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${BORDER_GOLD}`,
         display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 40px", height: 56 }}>
         <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 6, color: GOLD }}>BENEATH THE BOOK</div>
-        <a href="#submit" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: BG,
-          background: GOLD, padding: "8px 20px", borderRadius: 4, textDecoration: "none", textTransform: "uppercase" }}>
-          Submit Strategy
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <a href="https://www.tiktok.com/@beneaththebook" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 12, color: SECONDARY, textDecoration: "none", letterSpacing: 1 }}>@beneaththebook</a>
+          <a href="#submit" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: BG,
+            background: GOLD, padding: "8px 20px", borderRadius: 4, textDecoration: "none", textTransform: "uppercase" }}>
+            Submit Strategy
+          </a>
+        </div>
       </nav>
 
       {/* ── HERO ── */}
@@ -324,8 +328,8 @@ function BTBStrategyAudit() {
         <FadeIn delay={0.2}>
           <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
             <StatBox end={3505} label="Trading Days" />
-            <StatBox end={19731} label="Level Tests" color={BULLISH} />
-            <StatBox end={21} label="Findings" color={BEARISH_LIGHT} />
+            <StatBox end={14} label="ICT Strategies Tested" color={BULLISH} />
+            <StatBox end={11} label="Profitable Strategies" color={BEARISH_LIGHT} />
           </div>
         </FadeIn>
       </section>
@@ -400,6 +404,121 @@ function BTBStrategyAudit() {
               Estimated annual savings: &pound;3,200
             </div>
           </Card>
+        </FadeIn>
+      </section>
+
+      {/* ── ICT CASE STUDY ── */}
+      <section style={{ maxWidth: 900, margin: "0 auto", padding: "80px 24px" }}>
+        <FadeIn>
+          <div style={{ textAlign: "center", marginBottom: 50 }}>
+            <div style={{ fontSize: 13, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 12, textTransform: "uppercase" }}>Case Study</div>
+            <div style={{ width: 60, height: 2, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)`, margin: "0 auto 24px" }} />
+            <h2 style={{ fontSize: 32, fontWeight: 800, color: WHITE, marginBottom: 16 }}>We Backtested ICT</h2>
+            <p style={{ fontSize: 16, color: SECONDARY, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
+              14 ICT concepts tested across 3,505 days of GEX regime data.
+              The results challenge everything you think you know about ICT trading.
+            </p>
+          </div>
+        </FadeIn>
+
+        {/* Key finding 1 */}
+        <FadeIn delay={0.1}>
+          <div style={{ background: "rgba(255,215,0,0.04)", border: `1px solid ${BORDER_GOLD}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ color: GOLD, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>THE ENTRY TRIGGER MATTERS MORE THAN THE CONCEPT</div>
+                <div style={{ color: SECONDARY, fontSize: 14, lineHeight: 1.5 }}>Standard ICT liquidity sweep: 4% win rate. Our sweep-and-reclaim refinement: 40-50% win rate.</div>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 120 }}>
+                <div style={{ color: BULLISH, fontSize: 28, fontWeight: 700 }}>+36%</div>
+                <div style={{ color: MUTED, fontSize: 11, letterSpacing: 1 }}>WIN RATE UPLIFT</div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Key finding 2 */}
+        <FadeIn delay={0.2}>
+          <div style={{ background: "rgba(255,215,0,0.04)", border: `1px solid ${BORDER_GOLD}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ color: GOLD, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>THE PATTERN NOBODY TALKS ABOUT IS THE BEST ONE</div>
+                <div style={{ color: SECONDARY, fontSize: 14, lineHeight: 1.5 }}>Mitigation Block Short: 51.1% WR, PF 2.09, Sharpe 2.43. Best in negative gamma at 56.7%.</div>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 120 }}>
+                <div style={{ color: BULLISH, fontSize: 28, fontWeight: 700 }}>2.09</div>
+                <div style={{ color: MUTED, fontSize: 11, letterSpacing: 1 }}>PROFIT FACTOR</div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Key finding 3 */}
+        <FadeIn delay={0.3}>
+          <div style={{ background: "rgba(255,215,0,0.04)", border: `1px solid ${BORDER_GOLD}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ color: GOLD, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>TUESDAY AND WEDNESDAY ARE NOT ALWAYS THE BEST DAYS</div>
+                <div style={{ color: SECONDARY, fontSize: 14, lineHeight: 1.5 }}>FVG fills: Tue/Wed (66.7% WR). Mitigation blocks: Thu/Fri (PF 5.45). The best day depends on the pattern.</div>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 120 }}>
+                <div style={{ color: BULLISH, fontSize: 28, fontWeight: 700 }}>66.7%</div>
+                <div style={{ color: MUTED, fontSize: 11, letterSpacing: 1 }}>FVG TUE/WED WR</div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Key finding 4 */}
+        <FadeIn delay={0.4}>
+          <div style={{ background: "rgba(255,215,0,0.04)", border: `1px solid ${BORDER_GOLD}`, borderRadius: 8, padding: 24, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ color: GOLD, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>COMBINED PORTFOLIO: TWO STRATEGIES, EVERY REGIME</div>
+                <div style={{ color: SECONDARY, fontSize: 14, lineHeight: 1.5 }}>FVG Fill Long (Tue/Wed, +Gamma) + Mitigation Short (Thu/Fri, -Gamma). PF 6.19, Calmar 24.22. OOS outperformed.</div>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 120 }}>
+                <div style={{ color: BULLISH, fontSize: 28, fontWeight: 700 }}>6.19</div>
+                <div style={{ color: MUTED, fontSize: 11, letterSpacing: 1 }}>PORTFOLIO PF</div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Strategy ranking table */}
+        <FadeIn delay={0.5}>
+          <div style={{ marginTop: 30, background: BG_CARD, borderRadius: 8, padding: 24 }}>
+            <div style={{ color: GOLD, fontSize: 14, fontWeight: 600, letterSpacing: 2, marginBottom: 16 }}>TOP 5 ICT STRATEGIES BY PROFIT FACTOR</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${BORDER_GOLD}` }}>
+                  <th style={{ textAlign: "left", padding: "8px 0", color: MUTED }}>#</th>
+                  <th style={{ textAlign: "left", padding: "8px 0", color: MUTED }}>Strategy</th>
+                  <th style={{ textAlign: "right", padding: "8px 0", color: MUTED }}>WR</th>
+                  <th style={{ textAlign: "right", padding: "8px 0", color: MUTED }}>PF</th>
+                  <th style={{ textAlign: "right", padding: "8px 0", color: MUTED }}>Best Regime</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { rank: 1, name: "Mitigation Block Short", wr: "51.1%", pf: "2.09", regime: "-Gamma", regimeColor: BEARISH_LIGHT },
+                  { rank: 2, name: "Sweep Reclaim Short", wr: "50.0%", pf: "2.00", regime: "Both", regimeColor: SECONDARY },
+                  { rank: 3, name: "Mitigation Block Long", wr: "45.7%", pf: "1.68", regime: "+Gamma", regimeColor: BULLISH },
+                  { rank: 4, name: "FVG Fill Long", wr: "44.7%", pf: "1.62", regime: "+Gamma (64.7%)", regimeColor: BULLISH },
+                  { rank: 5, name: "FVG CE Long", wr: "44.7%", pf: "1.62", regime: "+Gamma", regimeColor: BULLISH },
+                ].map((s, i, arr) => (
+                  <tr key={i} style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                    <td style={{ padding: "10px 0", color: GOLD }}>{s.rank}</td>
+                    <td style={{ padding: "10px 0", color: WHITE }}>{s.name}</td>
+                    <td style={{ textAlign: "right", padding: "10px 0", color: BULLISH }}>{s.wr}</td>
+                    <td style={{ textAlign: "right", padding: "10px 0", color: BULLISH, fontWeight: 600 }}>{s.pf}</td>
+                    <td style={{ textAlign: "right", padding: "10px 0", color: s.regimeColor }}>{s.regime}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ color: "#556677", fontSize: 12, marginTop: 12 }}>Based on 60 days of 5-minute intraday data + 3,505 days of daily regime-tagged data. Walk-forward validated.</div>
+          </div>
         </FadeIn>
       </section>
 
@@ -660,10 +779,10 @@ function BTBStrategyAudit() {
             <div style={{ fontSize: 12, letterSpacing: 4, color: GOLD, fontWeight: 700, marginBottom: 24, textAlign: "center", textTransform: "uppercase" }}>Data Credentials</div>
             <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
               {[
-                { v: "3,505", l: "Trading Days" },
-                { v: "12 Years", l: "History" },
-                { v: "19,731", l: "Level Tests" },
-                { v: "p < 0.001", l: "Significance" },
+                { v: "14", l: "ICT Strategies Backtested" },
+                { v: "11", l: "Profitable (Walk-Forward)" },
+                { v: "PF 6.19", l: "Combined Portfolio" },
+                { v: "Apr 2026", l: "Live Paper Trading" },
               ].map((d, i) => (
                 <div key={i} style={{ textAlign: "center", padding: "12px 20px" }}>
                   <div style={{ fontSize: 20, fontWeight: 800, color: GOLD }}>{d.v}</div>
@@ -682,7 +801,10 @@ function BTBStrategyAudit() {
           Data-driven trading analysis.<br />Regime-conditional strategy audits for ES futures traders.
         </div>
         <div style={{ fontSize: 12, color: MUTED, marginBottom: 8 }}>
-          TikTok: @beneaththebook &middot; Instagram: @beneaththebook
+          <a href="https://www.tiktok.com/@beneaththebook" target="_blank" rel="noopener noreferrer"
+            style={{ color: GOLD, textDecoration: "none" }}>@beneaththebook on TikTok</a>
+          {" "}&middot;{" "}
+          Instagram: @beneaththebook
         </div>
         <div style={{ fontSize: 11, color: "rgba(102,119,136,0.5)" }}>&copy; 2025 Beneath The Book. All rights reserved.</div>
       </footer>
